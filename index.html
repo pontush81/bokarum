@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <title>Månadskalender med Veckonummer och Händelser</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            text-align: center;
+            padding: 8px;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <h1>Månadskalender med Veckonummer och Händelser</h1>
+    <div id="calendar"></div>
+
+    <script async defer src="https://apis.google.com/js/api.js" onload="handleClientLoad()"></script>
+
+    <script>
+        function initClient() {
+            gapi.client.init({
+                apiKey: 'YOUR_API_KEY',
+                discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"],
+            }).then(function () {
+                listUpcomingEvents();
+            }).catch((error) => {
+                console.error("Initialization error: ", error);
+            });
+        }
+
+        function handleClientLoad() {
+            gapi.load('client', initClient);
+        }
+
+        function listUpcomingEvents() {
+            const today = new Date();
+            const timeMin = new Date(today.getFullYear(), today.getMonth(), 1).toISOString();
+            const timeMax = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString();
+
+            gapi.client.calendar.events.list({
+                'calendarId': 'primary',
+                'timeMin': timeMin,
+                'timeMax': timeMax,
+                'showDeleted': false,
+                'singleEvents': true,
+                'orderBy': 'startTime'
+            }).then(response => {
+                const events = response.result.items;
+                createCalendar(today.getFullYear(), today.getMonth(), events);
+            }).catch((error) => {
+                console.error("Error fetching events:", error);
+            });
+        }
+
+        function createCalendar(year, month, events) {
+            const calendarDiv = document.getElementById('calendar');
+            const monthNames = ["Januari", "Februari", "Mars", "April", "Maj", "Juni", "Juli", "Augusti", "September", "Oktober", "November", "December"];
+            const firstDay = new Date(year, month, 1).getDay();
+            const lastDay = new Date(year, month + 1, 0).getDate();
+
+            let html = `<h2>${monthNames[month]} ${year}</h2>`;
+            html += '<table>';
+            html += '<tr><th>Vecka</th><th>Mån</th><th>Tis</th><th>Ons</th><th>Tor</th><th>Fre</th><th>Lör</th><th>Sön</th></tr><tr>';
+
+            for (let i = 0; i < (firstDay || 7) - 1; i++) {
+                html += '<td></td>';
+            }
+
+            for (let day = 1; day <= lastDay; day++) {
+                const date = new Date(year, month, day);
+                const dayEvents = events.filter(event => new Date(event.start.date || event.start.dateTime).getDate() === day);
+
+                if (day === 1 || (date.getDay() === 1 && day !== 1)) {
+                    html += `<td>${getWeekNumber(date)}</td>`;
+                }
+
+                html += `<td>${day}`;
+                dayEvents.forEach(event => {
+                    html += `<div>${event.summary}</div>`;
+                });
+                html += '</td>';
+                
+                if (date.getDay() === 0) {
+                    html += '</tr><tr>';
+                }
+            }
+
+            html += '</tr></table>';
+            calendarDiv.innerHTML = html;
+        }
+
+        function getWeekNumber(d) {
+            d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+            d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+            const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+            const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+            return weekNo;
+        }
+    </script>
+</body>
+</html>
